@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "email": { "type": "string", "format": "email", "description": "User's email address." },
+        "displayName": { "type": "string", "description": "User's display name." },
+        "photoURL": { "type": "string", "description": "URL to the user's profile picture." },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "User's role." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp." }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Magazine": {
+      "title": "Magazine",
+      "description": "Metadata and page data for static and interactive magazines.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the magazine." },
+        "title": { "type": "string", "description": "The title of the magazine." },
+        "userId": { "type": "string", "description": "The UID of the user who owns the magazine." },
+        "pages": { "type": "array", "description": "Array of page references or lightweight page objects." },
+        "thumbnail": { "type": "string", "description": "URL to the cover image or thumbnail." },
+        "published": { "type": "boolean", "description": "Whether the magazine is published to the cloud." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
+        "pdfUrl": { "type": "string", "description": "URL to the generated PDF file in storage." },
+        "schoolId": { "type": "string", "description": "School identifier." },
+        "schoolName": { "type": "string", "description": "School name." },
+        "region": { "type": "string", "description": "Region." },
+        "year": { "type": "number", "description": "Publication year." },
+        "likes": { "type": "number", "description": "Number of likes." },
+        "views": { "type": "number", "description": "Number of views." },
+        "magazineType": { "type": "string", "enum": ["static", "interactive"], "description": "The type of magazine." },
+        "isDraft": { "type": "boolean", "description": "Whether the magazine is a draft." },
+        "data": { "type": "object", "description": "Full data for interactive magazines." }
+      },
+      "required": ["id", "title", "userId", "updatedAt"]
+    },
+    "MagazinePage": {
+      "title": "Magazine Page",
+      "description": "Individual page data for a magazine.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the page." },
+        "fabricData": { "type": "object", "description": "Fabric.js JSON representation of the page." },
+        "order": { "type": "number", "description": "The order of the page in the magazine." },
+        "thumbnail": { "type": "string", "description": "Optional thumbnail for the page." }
+      },
+      "required": ["id", "order"]
+    },
+    "ContentMetadata": {
+      "title": "Content Metadata",
+      "description": "Metadata for interactive content stored in the local SQLite database.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the content." },
+        "title": { "type": "string", "description": "The title of the content." },
+        "type": { "type": "string", "description": "The type of content (e.g., interactive-book)." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." },
+        "userId": { "type": "string", "description": "The UID of the user who owns the content." }
+      },
+      "required": ["id", "title", "type", "userId", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles and roles."
+    },
+    "/magazines/{magazineId}": {
+      "schema": { "$ref": "Magazine" },
+      "description": "Collection of magazines created by users."
+    },
+    "/magazines/{magazineId}/pages/{pageId}": {
+      "schema": { "$ref": "MagazinePage" },
+      "description": "Subcollection of pages for a magazine."
+    },
+    "/content_metadata/{contentId}": {
+      "schema": { "$ref": "ContentMetadata" },
+      "description": "Metadata for interactive content modules."
+    }
+  }
+}

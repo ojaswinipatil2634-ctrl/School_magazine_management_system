@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Firebase UID)
+    // Fields:
+    //   - id: string (required) - The unique ID of the user.
+    //   - name: string (required) - The user's display name.
+    //   - role: string (required, 'viewer', 'organization', or 'admin') - The user's role.
+    //   - avatar: string - URL to the user's avatar image.
+    //   - bio: string - A short biography.
+    //   - region: string - The user's geographical region.
+    //   - bookmarks: list of strings - List of bookmarked magazine IDs.
+    //   - likedMagazines: list of strings - List of liked magazine IDs.
+    //   - viewHistory: list of strings - List of viewed magazine IDs.
+    //   - followedSchools: list of strings - List of followed school IDs.
+    //   - achievements: list of strings - List of user achievements.
+    //
+    // Collection: magazines
+    // Document ID: {magazineId}
+    // Fields:
+    //   - id: string (required) - Unique ID of the magazine.
+    //   - title: string (required) - Title of the magazine.
+    //   - schoolId: string (required) - ID of the school.
+    //   - schoolName: string (required) - Name of the school.
+    //   - region: string - Region of the school.
+    //   - thumbnail: string - URL to the magazine's cover image.
+    //   - pdfUrl: string - URL to the PDF file in Firebase Storage.
+    //   - description: string - A brief description.
+    //   - likes: number - Number of likes.
+    //   - views: number - Number of views.
+    //   - year: number - Year of publication.
+    //   - language: string - Language of the magazine.
+    //
+    // Collection: schools
+    // Document ID: {schoolId}
+    // Fields:
+    //   - id: string (required) - Unique ID of the school.
+    //   - name: string (required) - Name of the school.
+    //   - region: string - Region where the school is located.
+    //   - logo: string - URL to the school's logo.
+    //   - banner: string - URL to the school's banner image.
+    //   - about: string - A brief description.
+    //   - totalLikes: number - Total likes.
+    //   - totalViews: number - Total views.
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (request.auth.token.email != null && (request.auth.token.email == "ojaswinipatil2634@gmail.com" && request.auth.token.email_verified == true)) ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
+    }
+
+    function isOrganization() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organization';
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.role in ['viewer', 'organization', 'admin'];
+    }
+
+    function isValidMagazine(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.schoolId is string && data.schoolId.size() > 0 &&
+             data.schoolName is string && data.schoolName.size() > 0;
+    }
+
+    function isValidSchool(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'viewer';
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /magazines/{magazineId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /interactive/{magazineId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

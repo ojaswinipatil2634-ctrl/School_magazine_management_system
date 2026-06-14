@@ -1,0 +1,7 @@
+{
+  "name": "Remix: CreativeIndia - School Showcase Platform",
+  "description": "A national platform showcasing school creativity through digital magazines, videos, and regional highlights. Features professional profiles, advanced analytics for organizations, and an immersive magazine reader.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

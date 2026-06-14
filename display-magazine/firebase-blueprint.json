@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user profile information and activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the user (Firebase UID)." },
+        "name": { "type": "string", "description": "The user's display name." },
+        "role": { "type": "string", "enum": ["viewer", "organization", "admin"], "description": "The user's role." },
+        "avatar": { "type": "string", "description": "URL to the user's avatar image." },
+        "bio": { "type": "string", "description": "A short biography of the user." },
+        "region": { "type": "string", "description": "The user's geographical region." },
+        "bookmarks": { "type": "array", "items": { "type": "string" }, "description": "List of bookmarked magazine IDs." },
+        "likedMagazines": { "type": "array", "items": { "type": "string" }, "description": "List of liked magazine IDs." },
+        "viewHistory": { "type": "array", "items": { "type": "string" }, "description": "List of viewed magazine IDs." },
+        "followedSchools": { "type": "array", "items": { "type": "string" }, "description": "List of followed school IDs." },
+        "achievements": { "type": "array", "items": { "type": "string" }, "description": "List of user achievements." }
+      },
+      "required": ["id", "name", "role"]
+    },
+    "Magazine": {
+      "title": "Magazine",
+      "description": "Represents a digital magazine published by a school.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the magazine." },
+        "title": { "type": "string", "description": "Title of the magazine." },
+        "schoolId": { "type": "string", "description": "ID of the school that published it." },
+        "schoolName": { "type": "string", "description": "Name of the school." },
+        "region": { "type": "string", "description": "Region of the school." },
+        "thumbnail": { "type": "string", "description": "URL to the magazine's cover image." },
+        "pdfUrl": { "type": "string", "description": "URL to the PDF file in Firebase Storage." },
+        "description": { "type": "string", "description": "A brief description of the magazine." },
+        "likes": { "type": "integer", "description": "Number of likes." },
+        "views": { "type": "integer", "description": "Number of views." },
+        "year": { "type": "integer", "description": "Year of publication." },
+        "language": { "type": "string", "description": "Language of the magazine." }
+      },
+      "required": ["id", "title", "schoolId", "schoolName"]
+    },
+    "School": {
+      "title": "School",
+      "description": "Represents a school in the network.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the school." },
+        "name": { "type": "string", "description": "Name of the school." },
+        "region": { "type": "string", "description": "Region where the school is located." },
+        "logo": { "type": "string", "description": "URL to the school's logo." },
+        "banner": { "type": "string", "description": "URL to the school's banner image." },
+        "about": { "type": "string", "description": "A brief description of the school." },
+        "totalLikes": { "type": "integer", "description": "Total likes across all magazines." },
+        "totalViews": { "type": "integer", "description": "Total views across all magazines." }
+      },
+      "required": ["id", "name"]
+    },
+    "InteractiveMagazine": {
+      "title": "Interactive Magazine",
+      "description": "Represents an interactive digital magazine.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "userId": { "type": "string" },
+        "magazineType": { "type": "string", "enum": ["interactive"] },
+        "published": { "type": "boolean" },
+        "thumbnail": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "data": { "type": "object" }
+      },
+      "required": ["id", "title", "userId", "magazineType", "data"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/magazines/{magazineId}": {
+      "schema": "Magazine",
+      "description": "Magazine documents."
+    },
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "School profile documents."
+    },
+    "/interactive/{magazineId}": {
+      "schema": "InteractiveMagazine",
+      "description": "Interactive magazine documents."
+    }
+  }
+}

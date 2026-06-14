@@ -1,0 +1,43 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Magazine PDFs and Assets
+    // Supports: magazines/01/..., magazines/covers/..., magazines/elements/...
+    match /magazines/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+                    (request.resource.size < 50 * 1024 * 1024) &&
+                    (request.resource.contentType.matches('application/pdf') || 
+                     request.resource.contentType.matches('image/.*'));
+    }
+
+    // Legacy paths (if any)
+    match /magazine_covers/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+                    (request.resource.size < 5 * 1024 * 1024) &&
+                    (request.resource.contentType.matches('image/.*'));
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

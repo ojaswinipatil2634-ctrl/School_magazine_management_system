@@ -1,0 +1,230 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: magazines
+    // Document ID: magazineId (string)
+    // Fields:
+    //   - id: string (required) - Unique identifier
+    //   - title: string (required) - Magazine title (1-100 chars)
+    //   - userId: string (required) - Owner's UID
+    //   - pages: list (optional) - Array of page objects
+    //   - thumbnail: string (optional) - URL to cover image
+    //   - published: bool (optional) - Publication status
+    //   - updatedAt: string (required) - ISO 8601 timestamp
+    //   - createdAt: string/timestamp (optional) - Creation timestamp
+    //   - pdfUrl: string (optional) - URL to PDF in storage
+    //   - schoolId: string (optional) - School UID
+    //   - schoolName: string (optional) - School Name
+    //   - region: string (optional) - Region
+    //   - year: number (optional) - Publication Year
+    //   - likes: number (optional) - Like count
+    //   - views: number (optional) - View count
+    //
+    // Collection: content_metadata
+    // Document ID: contentId (string)
+    // Fields:
+    //   - id: string (required) - Unique identifier
+    //   - title: string (required) - Content title (1-100 chars)
+    //   - type: string (required) - Content type (e.g., 'interactive-book')
+    //   - updatedAt: string (required) - ISO 8601 timestamp
+    //   - userId: string (required) - Owner's UID
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "professionenjoy123@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
+             data.role in ['admin', 'user', 'guest'] &&
+             (!('email' in data) || (isValidEmail(data.email) && data.email.size() <= 200)) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100));
+    }
+
+    function isValidMagazine(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 64 &&
+             isValidDateString(data.updatedAt) &&
+             (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp || data.createdAt is map)) &&
+             (!('thumbnail' in data) || (data.thumbnail == null || (isValidUrl(data.thumbnail) && data.thumbnail.size() <= 1000000))) &&
+             (!('pdfUrl' in data) || (data.pdfUrl == null || (isValidUrl(data.pdfUrl) && data.pdfUrl.size() <= 2000))) &&
+             (!('published' in data) || data.published is bool) &&
+             (!('pages' in data) || (data.pages is list && data.pages.size() <= 100)) &&
+             (!('schoolId' in data) || (data.schoolId is string && data.schoolId.size() <= 100)) &&
+             (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() <= 200)) &&
+             (!('region' in data) || (data.region is string && data.region.size() <= 100)) &&
+             (!('year' in data) || (data.year is number && data.year >= 1900 && data.year <= 2100)) &&
+             (!('likes' in data) || (data.likes is number && data.likes >= 0)) &&
+             (!('views' in data) || (data.views is number && data.views >= 0)) &&
+             (!('magazineType' in data) || (data.magazineType in ['static', 'interactive', 'uploaded'])) &&
+             (!('isDraft' in data) || data.isDraft is bool) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('source' in data) || (data.source is string && data.source.size() <= 50)) &&
+             (!('data' in data) || (data.data is map && data.data.size() <= 1000));
+    }
+
+    function isValidContentMetadata(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.type is string && data.type.size() > 0 && data.type.size() <= 50 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 64 &&
+             isValidDateString(data.updatedAt);
+    }
+
+    function isValidPage(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 64 &&
+             (!('fabricData' in data) || data.fabricData == null || 
+               (data.fabricData is map && data.fabricData.size() <= 1000) || 
+               (data.fabricData is string && data.fabricData.size() <= 1000000)) &&
+             (!('order' in data) || data.order is number) &&
+             (!('thumbnail' in data) || (data.thumbnail == null || (isValidUrl(data.thumbnail) && data.thumbnail.size() <= 1000000)));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && 
+                      isValidUser(request.resource.data) &&
+                      (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) &&
+                      isValidUser(request.resource.data) &&
+                      (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /magazines/{magazineId} {
+      allow read: if resource.data.published == true || (isAuthenticated() && (isOwner(resource.data.userId) || isAdmin()));
+      allow create: if isAuthenticated() && 
+                      isValidMagazine(request.resource.data) && 
+                      (isOwner(request.resource.data.userId) || isAdmin());
+      allow update: if isAuthenticated() && 
+                      isValidMagazine(request.resource.data) && 
+                      (isOwner(resource.data.userId) || isAdmin()) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+
+      match /pages/{pageId} {
+        allow read: if isAdmin() || 
+                      (exists(/databases/$(database)/documents/magazines/$(magazineId)) && 
+                       (get(/databases/$(database)/documents/magazines/$(magazineId)).data.published == true || 
+                        isOwner(get(/databases/$(database)/documents/magazines/$(magazineId)).data.userId)));
+        allow create: if isAuthenticated() && 
+                        isValidPage(request.resource.data) &&
+                        exists(/databases/$(database)/documents/magazines/$(magazineId)) &&
+                        (isOwner(get(/databases/$(database)/documents/magazines/$(magazineId)).data.userId) || isAdmin());
+        allow update: if isAuthenticated() && 
+                        isValidPage(request.resource.data) &&
+                        exists(/databases/$(database)/documents/magazines/$(magazineId)) &&
+                        (isOwner(get(/databases/$(database)/documents/magazines/$(magazineId)).data.userId) || isAdmin());
+        allow delete: if isAuthenticated() && 
+                        exists(/databases/$(database)/documents/magazines/$(magazineId)) &&
+                        (isOwner(get(/databases/$(database)/documents/magazines/$(magazineId)).data.userId) || isAdmin());
+      }
+    }
+
+    match /temper_magazine/{magazineId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && 
+                      isValidMagazine(request.resource.data) && 
+                      (isOwner(request.resource.data.userId) || isAdmin());
+      allow update: if isAuthenticated() && 
+                      isValidMagazine(request.resource.data) && 
+                      (isOwner(resource.data.userId) || isAdmin()) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+
+      match /pages/{pageId} {
+        allow read: if isAdmin() || 
+                      (exists(/databases/$(database)/documents/temper_magazine/$(magazineId)) && 
+                       isOwner(get(/databases/$(database)/documents/temper_magazine/$(magazineId)).data.userId));
+        allow create: if isAuthenticated() && 
+                        isValidPage(request.resource.data) &&
+                        exists(/databases/$(database)/documents/temper_magazine/$(magazineId)) &&
+                        (isOwner(get(/databases/$(database)/documents/temper_magazine/$(magazineId)).data.userId) || isAdmin());
+        allow update: if isAuthenticated() && 
+                        isValidPage(request.resource.data) &&
+                        exists(/databases/$(database)/documents/temper_magazine/$(magazineId)) &&
+                        (isOwner(get(/databases/$(database)/documents/temper_magazine/$(magazineId)).data.userId) || isAdmin());
+        allow delete: if isAuthenticated() && 
+                        exists(/databases/$(database)/documents/temper_magazine/$(magazineId)) &&
+                        (isOwner(get(/databases/$(database)/documents/temper_magazine/$(magazineId)).data.userId) || isAdmin());
+      }
+    }
+
+    match /content_metadata/{contentId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && 
+                      isValidContentMetadata(request.resource.data) && 
+                      (isOwner(request.resource.data.userId) || isAdmin());
+      allow update: if isAuthenticated() && 
+                      isValidContentMetadata(request.resource.data) && 
+                      (isOwner(resource.data.userId) || isAdmin()) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    match /interactive/{magazineId} {
+      allow read: if true; // Allow public read for interactive magazines so other websites can retrieve them
+      allow create: if isAuthenticated() && 
+                      isValidMagazine(request.resource.data) && 
+                      (isOwner(request.resource.data.userId) || isAdmin());
+      allow update: if isAuthenticated() && 
+                      isValidMagazine(request.resource.data) && 
+                      (isOwner(resource.data.userId) || isAdmin()) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
